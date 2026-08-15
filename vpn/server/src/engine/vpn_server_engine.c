@@ -153,7 +153,8 @@ int setup_tun_interface(session_t* session, const char* ip, const char* netmask,
         goto cleanup;
     }
 
-    tun_flush_routes(tun);
+    // tun_flush_routes(tun);
+    tun_rules_clear(tun);
 
     if (tun_add_route(tun, net_cidr) != 0) {
         goto cleanup;

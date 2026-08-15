@@ -24,8 +24,9 @@
 
 
 static int syt_server_rules_add_nft(tun_iface_t *tun, const char *wan_if);
-static int syt_client_rules_add_nft(tun_iface_t *tun, const char *wan_if);
-static int sys_rules_clear_nft(tun_iface_t *tun);
+static int syt_client_rules_add_nft(tun_iface_t *tun, const char *wan_if, const char *server_ip, uint16_t server_port);
+static int sys_server_rules_del_nft(tun_iface_t *tun);
+static int syt_client_rules_del_nft(tun_iface_t *tun);
 
 
 static int sys_iptables_reset_nft(tun_iface_t *tun);
@@ -828,7 +829,7 @@ const tun_api_table_t api_table_netlink_server = {
     .tun_ip_forwarding = server_sys_tun_ip_forwarding,
     .tun_server_rules_add = syt_server_rules_add_nft,
     .tun_client_rules_add = NULL,
-    .tun_rules_clear = sys_rules_clear_nft,
+    .tun_rules_clear = sys_server_rules_del_nft,
     .tun_cleanup = sys_tun_cleanup,
     .iptables_reset = sys_iptables_reset_nft,
 };
@@ -845,8 +846,8 @@ const tun_api_table_t api_table_netlink_client = {
     .tun_clear_dns = sys_tun_clear_dns,
     .tun_ip_forwarding = NULL,
     .tun_server_rules_add = NULL,
-    .tun_client_rules_add = NULL,
-    .tun_rules_clear = sys_rules_clear_nft,
+    .tun_client_rules_add = syt_client_rules_add_nft,
+    .tun_rules_clear = syt_client_rules_del_nft,
     .tun_cleanup = sys_tun_cleanup,
     .iptables_reset = NULL,
 };
@@ -978,11 +979,7 @@ static int syt_server_rules_add_nft(tun_iface_t *tun, const char *wan_if) {
 }
 
 
-static int syt_client_rules_add_nft(tun_iface_t *tun, const char *wan_if) {
-    return 0;
-}
-
-static int sys_rules_clear_nft(tun_iface_t *tun) {
+static int sys_server_rules_del_nft(tun_iface_t *tun) {
     if (!tun) {
         LOG_ERROR("Invalid parameter: tun is NULL");
         return -EINVAL;
@@ -995,7 +992,7 @@ static int sys_rules_clear_nft(tun_iface_t *tun) {
     }
 
     /* Target the table created during setup */
-    char ruleset[128];
+    char ruleset[256];
     snprintf(ruleset, sizeof(ruleset), "destroy table ip vpn_%s\n", tun_if);
 
     sys_priv_data_t *priv = (sys_priv_data_t* )tun->priv_data;
@@ -1023,6 +1020,99 @@ static int sys_rules_clear_nft(tun_iface_t *tun) {
 
     return 0;
 }
+
+
+
+static int syt_client_rules_add_nft(tun_iface_t *tun, const char *wan_if, const char *server_ip, uint16_t server_port) {
+    if (!tun || !wan_if || !server_ip || server_port == 0) {
+        return -EINVAL;
+    }
+
+    char ruleset[1024];
+    char err_buf[256] = {0};
+
+    /* Fully self-contained table statement: creates table, sets default drop policy,
+     * permits loopback, permits TUN traffic, and allows outer MsQuic UDP socket traffic to server_ip. */
+    snprintf(ruleset, sizeof(ruleset),
+        "table inet vpn_ks_%s {\n"
+        "    chain output {\n"
+        "        type filter hook output priority filter; policy drop;\n"
+        "        oifname \"lo\" accept\n"
+        "        oifname \"%s\" accept\n"
+        "        oifname \"%s\" ip daddr %s udp dport %u accept\n"
+        "    }\n"
+        "    chain input {\n"
+        "        type filter hook input priority filter; policy drop;\n"
+        "        iifname \"lo\" accept\n"
+        "        iifname \"%s\" accept\n"
+        "        ct state established,related accept\n"
+        "    }\n"
+        "}\n",
+        tun->ifname,
+        tun->ifname,
+        wan_if, server_ip, server_port,
+        tun->ifname);
+
+    sys_priv_data_t *priv = (sys_priv_data_t *)tun->priv_data;
+    if (!priv) {
+        LOG_ERROR("TUN private data not initialized");
+        return -ECANCELED;
+    }
+
+    int ret = run_nft_script(priv->bin_path.nft, ruleset, err_buf, sizeof(err_buf));
+    if (ret != 0) {
+        LOG_ERROR("Failed to apply client killswitch rules: %s", err_buf[0] ? err_buf : "Unknown error");
+        return ret;
+    }
+
+    LOG_DEBUG("Interface: %s | Applied atomic nftables killswitch rules", tun->ifname);
+    return 0;
+}
+
+
+static int syt_client_rules_del_nft(tun_iface_t *tun) {
+
+    if (!tun) {
+        LOG_ERROR("Invalid parameter: tun is NULL");
+        return -EINVAL;
+    }
+
+    const char *tun_if = tun->ifname;
+    if (!tun_if || tun_if[0] == '\0') {
+        LOG_ERROR("Invalid parameter: tun->ifname is NULL or empty");
+        return -EINVAL;
+    }
+
+    /* Target the table created during setup */
+    char ruleset[256];
+    snprintf(ruleset, sizeof(ruleset), "destroy table inet vpn_ks_%s\n", tun_if);
+
+    sys_priv_data_t *priv = (sys_priv_data_t* )tun->priv_data;
+    if (!priv) {
+        LOG_ERROR("TUN private data not initialized");
+        return -ECANCELED;
+    }
+
+    char err_buf[256] = {0};
+    int ret = run_nft_script(priv->bin_path.nft, ruleset, err_buf, sizeof(err_buf));
+
+    if (ret != 0) {
+        if (err_buf[0] != '\0') {
+            LOG_ERROR("Failed to destroy nftables table vpn_ks_%s: %s",
+                      tun_if, err_buf);
+        } else {
+            LOG_ERROR("Failed to destroy nftables table vpn_ks_%s (code %d)",
+                      tun_if, ret);
+        }
+        return ret;
+    }
+
+    LOG_DEBUG("Interface: %s | Successfully destroyed NAT table (vpn_ks_%s)",
+              tun_if, tun_if);
+
+    return 0;
+}
+
 
 
 static int sys_iptables_reset_nft(tun_iface_t *tun) {

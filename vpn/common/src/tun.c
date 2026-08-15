@@ -217,9 +217,9 @@ int tun_server_rules_add(tun_iface_t *tun, const char *wan_if) {
     return ret;
 }
 
-int tun_client_rules_add(tun_iface_t *tun, const char *wan_if) {
-    DISPATCH_SYS_API(tun, tun_client_rules_add, tun, wan_if);
-    int ret = tun->api->tun_client_rules_add(tun, wan_if);
+int tun_client_rules_add(tun_iface_t *tun, const char *wan_if, const char *server_ip, uint16_t server_port) {
+    DISPATCH_SYS_API(tun, tun_client_rules_add, tun, wan_if, server_ip, server_port);
+    int ret = tun->api->tun_client_rules_add(tun, wan_if, server_ip, server_port);
     return ret;
 }
 

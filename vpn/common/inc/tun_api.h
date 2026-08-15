@@ -205,7 +205,7 @@ int tun_server_rules_add(tun_iface_t *tun, const char *wan_if);
  * @param[in] wan_if Interface name handling outgoing internet connectivity (e.g., "eth0", "wlan0").
  * @return `0` on success, or a negative error code on failure.
  */
-int tun_client_rules_add(tun_iface_t *tun, const char *wan_if);
+int tun_client_rules_add(tun_iface_t *tun, const char *wan_if, const char *server_ip, uint16_t server_port);
 
 
 /**

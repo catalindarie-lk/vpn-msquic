@@ -33,7 +33,7 @@ typedef struct tun_api_table_t {
     int (*tun_ip_forwarding)(tun_iface_t *tun, bool enable);
     
     int (*tun_server_rules_add)(tun_iface_t *tun, const char *wan_if);
-    int (*tun_client_rules_add)(tun_iface_t *tun, const char *wan_if);
+    int (*tun_client_rules_add)(tun_iface_t *tun, const char *wan_if, const char *server_ip, uint16_t server_port);
 
     int (*tun_rules_clear)(tun_iface_t *tun);
 

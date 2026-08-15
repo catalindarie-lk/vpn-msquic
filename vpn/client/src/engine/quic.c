@@ -93,11 +93,15 @@ static inline int process_ctrl_pkt(session_t* session, pkt_ctrl_t *pkt_raw)
             if (tun_set_mtu(tun, mtu) != 0) goto cleanup;
             if (tun_set_up(tun) != 0) goto cleanup;
 
+            tun_rules_clear(tun);
+
             if (tun_set_dns(tun, dns1_str, dns2_str) != 0) goto cleanup;
 
             if (tun_add_route(tun, "0.0.0.0/1") != 0) goto cleanup;
             if (tun_add_route(tun, "128.0.0.0/1") != 0) goto cleanup;
             if (tun_add_route(tun, net_cidr) != 0) goto cleanup;
+
+            tun_client_rules_add(tun, session->wan->ifname, session->server_ip_str, session->server_port);
 
             // if (tun_client_nat_rules_add(tun, 
             //     session->wan->ifname, 
@@ -114,6 +118,7 @@ static inline int process_ctrl_pkt(session_t* session, pkt_ctrl_t *pkt_raw)
 
             tun_flush_routes(tun);
             tun_clear_dns(tun);
+            tun_rules_clear(tun);
             tun_set_down(tun);
             tun_destroy(tun);
             state_sync_set(&session->tun_state, TUN_FAIL);

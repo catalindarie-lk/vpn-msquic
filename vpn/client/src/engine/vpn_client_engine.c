@@ -63,7 +63,7 @@ void vpn_engine_cleanup(void *vpn_engine_ctx) {
     if(session->tun) {
         tun_flush_routes(session->tun);
         tun_clear_dns(session->tun);
-        // tun_nat_rules_clear(session->tun);
+        tun_rules_clear(session->tun);
         tun_destroy(session->tun);
         state_sync_destroy(&session->tun_state);
         free(session->tun);
