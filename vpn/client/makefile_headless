@@ -1,0 +1,79 @@
+# ==============================================================================
+# Compiler & Build Toolchain Configurations
+# ==============================================================================
+CC =            gcc
+CFLAGS =        -Wall -std=c23 -O3 -D_GNU_SOURCE \
+			-Wno-stringop-truncation \
+			-Wno-unused-includes \
+			-Wno-stringop-overflow \
+			-Wno-unused-variable \
+			-Wno-unused-parameter \
+			-Wno-unused-function \
+			-Wno-unused-but-set-variable
+
+PROJECT_DIR :=  $(CURDIR)
+PARENT_DIR :=   $(abspath $(PROJECT_DIR)/..)
+
+INCLUDES = 	-I$(PARENT_DIR)/dep/inc \
+			-I$(PARENT_DIR)/common/inc \
+			-I$(PROJECT_DIR)/inc \
+			-I$(PROJECT_DIR)/inc/engine
+
+DEP_LIB :=      $(PARENT_DIR)/dep/lib
+COMMON_DIR :=   $(PARENT_DIR)/common
+
+# path to look for the liberary when building the executable
+# path to embed in the executable so it knows where to load the shared library from
+LDFLAGS =       -L$(DEP_LIB) \
+                -Wl,-rpath,$(DEP_LIB)
+
+LIBS	 =	-lmsquic -lssl -lcrypto -lpthread
+
+TARGET   =      bin/vpn_client
+SRC      =      $(COMMON_DIR)/src/tun.c \
+                $(COMMON_DIR)/src/tun_driver.c \
+                $(COMMON_DIR)/src/net_iface.c \
+                $(COMMON_DIR)/src/pkt_ctrl.c \
+                $(COMMON_DIR)/src/pkt_data.c \
+                $(PROJECT_DIR)/src/engine/session.c \
+                $(PROJECT_DIR)/src/engine/quic.c \
+				$(PROJECT_DIR)/src/engine/threads.c \
+                $(PROJECT_DIR)/src/engine/vpn_client_engine.c \
+				$(PROJECT_DIR)/src/vpn_client_headless.c
+
+# Map .c source files to .o object files in the build step
+OBJ      = $(SRC:.c=.o)
+
+# ==============================================================================
+# Production Environment Overlays (Overridable via CLI)
+# ==============================================================================
+SERVER_IP   = 10.10.10.11
+PORT        = 443
+APP_NAME    = vpn_client
+ALPN        = h3
+
+# ==============================================================================
+# Standard Automation Build Recipes
+# ==============================================================================
+.PHONY: clean client compile-db
+
+$(TARGET): $(SRC)
+	$(CC) $(CFLAGS) $(INCLUDES) -o $(TARGET) $(SRC) $(LDFLAGS) $(LIBS)
+
+# ==============================================================================
+# CLI Execution Pipelines
+# ==============================================================================
+clean:
+	rm -f $(TARGET)
+
+
+client: $(TARGET)
+	/usr/bin/sudo ./$(TARGET) \
+		--server-ip $(SERVER_IP) \
+		--port $(PORT) \
+		--appname $(APP_NAME) \
+		--alpn $(ALPN) \
+		--unsecure
+
+bear: clean
+	/usr/bin/sudo bear -- make $(TARGET)

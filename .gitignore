@@ -1,0 +1,6 @@
+vpn/client/bin
+vpn/client/.cache
+vpn/server/bin
+vpn/server/.cache
+
+*.json
