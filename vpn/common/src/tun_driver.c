@@ -946,17 +946,17 @@ static int syt_server_rules_add_nft(tun_iface_t *tun, const char *wan_if) {
 
     /* Fully self-contained table statement: creates if missing, flushes if existing */
     snprintf(ruleset, sizeof(ruleset),
-        "table ip vpn_%s {\n"
-        "    chain forward {\n"
-        "        type filter hook forward priority filter; policy accept;\n"
-        "        iifname \"%s\" oifname \"%s\" accept\n"
-        "        iifname \"%s\" oifname \"%s\" ct state established,related accept\n"
-        "    }\n"
-        "    chain postrouting {\n"
-        "        type nat hook postrouting priority srcnat; policy accept;\n"
-        "        ip saddr %s oifname \"%s\" masquerade\n"
-        "    }\n"
-        "}\n",
+    "table inet vpn_%s {\n"
+    "    chain forward {\n"
+    "        type filter hook forward priority filter; policy accept;\n"
+    "        iifname \"%s\" oifname \"%s\" accept\n"
+    "        iifname \"%s\" oifname \"%s\" ct state established,related accept\n"
+    "    }\n"
+    "    chain postrouting {\n"
+    "        type nat hook postrouting priority srcnat; policy accept;\n"
+    "        ip saddr %s oifname \"%s\" masquerade\n"
+    "    }\n"
+    "}\n",
         tun->ifname,
         tun->ifname, wan_if,
         wan_if, tun->ifname,
@@ -993,7 +993,7 @@ static int sys_server_rules_del_nft(tun_iface_t *tun) {
 
     /* Target the table created during setup */
     char ruleset[256];
-    snprintf(ruleset, sizeof(ruleset), "destroy table ip vpn_%s\n", tun_if);
+    snprintf(ruleset, sizeof(ruleset), "destroy table inet vpn_%s\n", tun_if);
 
     sys_priv_data_t *priv = (sys_priv_data_t* )tun->priv_data;
     if (!priv) {

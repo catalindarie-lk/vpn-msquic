@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void* thread_read_packet(void* arg);
+void* thread_pkt_data_send(void* arg);
 
 void* thread_pkt_data_recv(void* arg);
 

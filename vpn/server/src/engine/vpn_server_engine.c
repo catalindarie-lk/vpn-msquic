@@ -9,6 +9,39 @@
 #include "net_iface.h"
 #include "tun_api.h"
 #include "threads.h"
+#include <pthread.h>
+#include <signal.h>
+#include <stdlib.h>
+
+void vpn_engine_cleanup(void *vpn_engine_ctx);
+
+
+/* Global or session-scoped exit flag */
+// static volatile bool g_running = true;
+
+typedef struct {
+    session_t *session;
+    sigset_t sig_mask;
+} sig_thread_args_t;
+
+/* Signal listener thread function */
+static void *signal_handler_thread(void *arg) {
+    sig_thread_args_t *args = (sig_thread_args_t *)arg;
+    int sig = 0;
+
+    /* Wait synchronously for SIGINT or SIGTERM */
+    if (sigwait(&args->sig_mask, &sig) == 0) {
+        LOG_DEBUG("Received signal %d, shutting down VPN engine...", sig);
+
+        /* Signal MsQuic / socket loop / worker threads to stop */
+        if (args->session) {
+            vpn_engine_cleanup(args->session);
+        }
+    }
+
+    free(args);
+    return NULL;
+}
 
 int port = 443;
 const char* local_ip = "10.10.10.11";
@@ -45,13 +78,6 @@ void vpn_engine_cleanup(void *vpn_engine_ctx) {
         pthread_join(session->thread_pkt_data_recv, NULL);
     }
 
-    pool_destroy(session->pool_pkt_data_recv);
-    pool_destroy(session->pool_pkt_data_send);
-    queue_destroy(session->queue_pkt_data_recv);
-
-    ip_pool_destroy(session->ip_pool);
-    pool_destroy(session->client_pool);
-
     if(session->tun) {
         tun_flush_routes(session->tun);
         tun_clear_dns(session->tun);
@@ -64,15 +90,21 @@ void vpn_engine_cleanup(void *vpn_engine_ctx) {
         free(session->tun);
         session->tun = NULL;
     }
-    
 
-    _exit(0);
+    pool_destroy(session->pool_pkt_data_recv);
+    pool_destroy(session->pool_pkt_data_send);
+    queue_destroy(session->queue_pkt_data_recv);
+
+    ip_pool_destroy(session->ip_pool);
+    pool_destroy(session->client_pool);
+    pthread_mutex_destroy(&session->client_list_lock);
+    free(session->client_list);
+    
+    exit(0);
 
     if (session->MsQuic) {
         MsQuicShutdown(session->MsQuic);
-    }
-
-    
+    }   
 
     free(session);
     session = NULL;
@@ -101,7 +133,7 @@ int detect_default_wan(session_t* session) {
 
     net_iface_t* wan = (net_iface_t* )malloc(sizeof(net_iface_t));
     if (!wan) {
-        return ENOMEM;
+        return -ENOMEM;
     }
 
     wan->ifindex = route_info.ifindex;
@@ -123,74 +155,38 @@ int setup_tun_interface(session_t* session, const char* ip, const char* netmask,
     }
 
     tun_iface_t* tun = tun_create(TUN_BACKEND_NETLINK_SERVER);
-    if (!tun) {
-        return EXIT_FAILURE;
-    }
+    if (!tun) return -1;
 
-    if (tun_open(tun) != 0) {
-        goto cleanup;
-    }
+    if (tun_open(tun) != 0) return -1;
+    if (tun_set_addr(tun, ip, netmask) != 0) return -1;
 
-    if (tun_set_addr(tun, ip, netmask) != 0) {
-        goto cleanup;
-    }
+    if (tun_set_mtu(tun, 1380) != 0) return -1;
 
-    if (tun_set_mtu(tun, 1380) != 0) {
-        goto cleanup;
-    }
-
-    if (tun_set_up(tun) != 0) {
-        goto cleanup;
-    }
+    if (tun_set_up(tun) != 0) return -1;
 
     tun_clear_dns(tun);
-    if (tun_set_dns(tun, "1.1.1.1", "8.8.8.8") != 0) {
-        goto cleanup;
-    }
+    if (tun_set_dns(tun, "1.1.1.1", "8.8.8.8") != 0) return -1;
 
     char net_cidr[20] = {0};    
-    if (tun_get_net_cidr(tun, net_cidr, sizeof(net_cidr)) != 0) {
-        goto cleanup;
-    }
+    if (tun_get_net_cidr(tun, net_cidr, sizeof(net_cidr)) != 0) return -1;
 
     // tun_flush_routes(tun);
     tun_rules_clear(tun);
 
-    if (tun_add_route(tun, net_cidr) != 0) {
-        goto cleanup;
-    }
+    if (tun_add_route(tun, net_cidr) != 0) return -1;
 
-    if (tun_ip_forwarding(tun, true) != 0) {
-        goto cleanup;
-    }
+    if (tun_ip_forwarding(tun, true) != 0) return -1;
 
-    if (tun_server_rules_add(tun, wan_ifname) != 0) {
-        goto cleanup;
-    }
+    if (tun_server_rules_add(tun, wan_ifname) != 0) return -1;
 
 
-    if (tun_start(tun) != 0) {
-        goto cleanup;
-    }
+    if (tun_start(tun) != 0) return -1;
 
     session->tun = tun;
     state_sync_set(&session->tun_state,  TUN_READY);
-    return EXIT_SUCCESS;
 
-cleanup:
-    // Rollback system rules
-    fprintf(stderr, "\n -------- ROLLING BACK -------- \n\n");
-    uint64_t flags = 0;
-    tun_get_flags(tun, &flags);
+    return 0;
 
-    // Reverse strictly in opposite order of application
-    tun_rules_clear(tun);
-    tun_ip_forwarding(tun, false);
-    tun_clear_dns(tun);
-    tun_set_down(tun);
-    
-    tun_destroy(tun);
-    return EXIT_FAILURE;
 }
 
 int setup_msquic(session_t *session) {
@@ -251,7 +247,7 @@ int init_client_manager(session_t* session, size_t count) {
 
     client_t** client_list = malloc(sizeof(client_t*) * count);
     if (!client_list) {
-        return ENOMEM;
+        return -ENOMEM;
     }
     memset(client_list, 0, sizeof(client_t*) * count);
 
@@ -265,13 +261,11 @@ int init_client_manager(session_t* session, size_t count) {
 
     pool_t *client_pool = pool_init(sizeof(client_t), count);
     if (!client_pool) {
-        pool_destroy(client_pool);
-        free(client_list);
-        return ENOMEM;
+        return -ENOMEM;
     }
     session->client_pool = client_pool;
 
-    return EXIT_SUCCESS;
+    return 0;
 
 }
 
@@ -295,10 +289,44 @@ int start_threads(session_t *session) {
 
 }
 
-void *vpn_engine_start()
+int attach_signal(session_t *session){
+
+        /* Step 1: Block SIGINT and SIGTERM for the main thread and all future child threads */
+    sigset_t sig_mask;
+    sigemptyset(&sig_mask);
+    sigaddset(&sig_mask, SIGINT);
+    sigaddset(&sig_mask, SIGTERM);
+
+    if (pthread_sigmask(SIG_BLOCK, &sig_mask, NULL) != 0) {
+        LOG_ERROR("Failed to set thread signal mask");
+        return -1;
+    }
+
+    /* Step 3: Spawn dedicated signal handler thread */
+    sig_thread_args_t *sig_args = malloc(sizeof(sig_thread_args_t));
+    if (!sig_args) return -1;
+
+    sig_args->session = session;
+    sig_args->sig_mask = sig_mask;
+
+    pthread_t sig_tid;
+    if (pthread_create(&sig_tid, NULL, signal_handler_thread, sig_args) != 0) {
+        LOG_ERROR("Failed to create signal thread");
+        free(sig_args);
+        return -1;
+    }
+    pthread_detach(sig_tid);
+
+    return 0;
+
+}
+
+int main(void)
 {
     session_t* session = create_session();
     if (!session) goto err;
+
+    if (attach_signal(session) != 0) goto err;
 
     if (detect_default_wan(session) != 0) goto err;
     
@@ -318,12 +346,14 @@ void *vpn_engine_start()
 
     if (start_threads(session) != 0) goto err;
 
-
     LOG_DEBUG("Server VPN Engine successfully started");
-    return (void*)session;
+
+    while(true) {
+        sleep(1);
+    }
 
 err:
     LOG_ERROR("Server VPN Engine errors detected");
     vpn_engine_cleanup(session);
-    return NULL;
+    return EXIT_FAILURE;
 }

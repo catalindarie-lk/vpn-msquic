@@ -62,8 +62,8 @@ typedef struct session_t {
     state_sync_t con_state;
     state_sync_t stream_state;
 
-    pthread_t thread_read_packet;
-    bool running_read_packet;
+    pthread_t thread_pkt_data_send;
+    bool running_pkt_data_send;
 
     pthread_t thread_pkt_data_recv;
     bool running_pkt_data_recv;

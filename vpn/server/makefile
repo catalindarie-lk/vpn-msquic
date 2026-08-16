@@ -41,8 +41,7 @@ SRC      =	$(COMMON_SRC)/tun.c \
 			$(PROJECT_DIR)/src/engine/client.c \
 			$(PROJECT_DIR)/src/engine/ip_pool.c \
 			$(PROJECT_DIR)/src/engine/threads.c \
-			$(PROJECT_DIR)/src/engine/vpn_server_engine.c \
-			$(PROJECT_DIR)/src/vpn_server_headless.c
+			$(PROJECT_DIR)/src/engine/vpn_server_engine.c
 
 # ==============================================================================
 # Standard Automation Build Recipes

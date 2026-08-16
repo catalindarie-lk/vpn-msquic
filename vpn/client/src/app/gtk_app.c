@@ -58,6 +58,13 @@ static void on_shutdown(GApplication *g_app, gpointer user_data) {
 
 // Spawns GtkApplication, runs the main event loop, and blocks until application exit
 void gtk_app_create(vpn_app_t *app, int argc, char *argv[]) {
+    
+    if (daemon(0, 0) != 0) {
+        g_printerr("Failed to daemonize process\n");
+        return;
+    }
+    
+    
     GtkApplication *gtk_app = gtk_application_new(
         "com.yourcompany.vpnapp",
         G_APPLICATION_DEFAULT_FLAGS

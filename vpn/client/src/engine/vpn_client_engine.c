@@ -41,21 +41,19 @@ void vpn_engine_cleanup(void *vpn_engine_ctx) {
         return;
     }
 
-    if (session->running_read_packet) {
-        session->running_read_packet = false;
-        // pthread_cancel(session->thread_read_packet);
+    if (session->running_pkt_data_send) {
+        session->running_pkt_data_send = false;
         
         uint64_t signal_val = 1;
         write(session->shutdown_fd, &signal_val, sizeof(signal_val));
 
-        pthread_join(session->thread_read_packet, NULL);
+        pthread_join(session->thread_pkt_data_send, NULL);
         close(session->shutdown_fd);
 
     }
 
     if (session->running_pkt_data_recv) {
         session->running_pkt_data_recv = false;
-        // pthread_cancel(session->thread_pkt_data_recv);
         queue_wait_push(session->queue_pkt_data_recv, NULL);
         pthread_join(session->thread_pkt_data_recv, NULL);
     }
@@ -179,11 +177,11 @@ int request_virtip(session_t *session) {
 }
 
 int start_threads(session_t *session) {
-    session->running_read_packet = true;
+    session->running_pkt_data_send = true;
     if (pthread_create(
-        &session->thread_read_packet, 
+        &session->thread_pkt_data_send, 
         NULL, 
-        thread_read_packet, 
+        thread_pkt_data_send,
         (void* )session) != 0) return -1;
    
     session->running_pkt_data_recv = true;
@@ -210,7 +208,8 @@ void *vpn_engine_start(vpn_config_t *config)
     if (start_threads(session) != 0) goto err;
 
     LOG_DEBUG("Server VPN Engine successfully started");
-    return (void*)session;
+
+    return(session);
 
 err:    
     LOG_ERROR("Server VPN Engine errors detected");

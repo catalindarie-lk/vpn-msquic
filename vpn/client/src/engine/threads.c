@@ -29,7 +29,7 @@
 #include "session.h"
 #include "tun_api.h"
 
-void* thread_read_packet(void* arg)
+void* thread_pkt_data_send(void* arg)
 {
     session_t *session = (session_t* )arg;
     assert(session);
@@ -47,7 +47,7 @@ void* thread_read_packet(void* arg)
     fds[1].fd = session->shutdown_fd;  // Watch shutdown event handle
     fds[1].events = POLLIN;
 
-    while (session->running_read_packet) {
+    while (session->running_pkt_data_send) {
 
         int ret = poll(fds, 2, -1);
 
@@ -112,7 +112,7 @@ void* thread_read_packet(void* arg)
         }
     }
 
-    LOG_DEBUG("------------THREAD thread_read_packet() joined-------------");
+    LOG_DEBUG("thread_pkt_data_send() joined");
 
     return NULL;
 }
@@ -153,7 +153,7 @@ void* thread_pkt_data_recv(void* arg)
         }
         pool_put(pkt);
     }
-    LOG_DEBUG("------------THREAD thread_pkt_data_recv() joined-------------");
+    LOG_DEBUG("thread_pkt_data_recv() joined");
 
     return NULL;
 }

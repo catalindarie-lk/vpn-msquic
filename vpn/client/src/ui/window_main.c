@@ -1,6 +1,6 @@
 // src/ui/window_main.c
 #include "window_main.h"
-// #include "view_logger.h"
+#include "view_logger.h"
 #include "gtk/gtk.h"
 #include "view_controls.h"
 
@@ -70,8 +70,8 @@ GtkWidget *window_main_create(vpn_app_t *app) {
     gtk_box_pack_start(GTK_BOX(vbox), view_controls_get_widget(controls), FALSE, FALSE, 0);
 
     // 2. Bottom Log View
-    // view_logger_t *logger = view_logger_create();
-    // gtk_box_pack_start(GTK_BOX(vbox), view_logger_get_widget(logger), TRUE, TRUE, 0);
+    view_logger_t *logger = view_logger_create();
+    gtk_box_pack_start(GTK_BOX(vbox), view_logger_get_widget(logger), TRUE, TRUE, 0);
 
     return window;
 }

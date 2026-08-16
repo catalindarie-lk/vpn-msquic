@@ -92,22 +92,6 @@ view_controls_t *view_controls_create(vpn_app_t *app) {
     gtk_box_pack_start(GTK_BOX(row_port), controls->server_port_entry, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(controls->container), row_port, FALSE, FALSE, 0);
 
-    // --- ROW 3: App Name ---
-    // GtkWidget *row_app_name = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
-    // gtk_widget_set_halign(row_app_name, GTK_ALIGN_START);
-
-    // GtkWidget *app_name_label = gtk_label_new("App Name:");
-    // gtk_widget_set_size_request(app_name_label, 90, -1);
-    // gtk_label_set_xalign(GTK_LABEL(app_name_label), 0.0);
-
-    // controls->app_name_entry = gtk_entry_new();
-    // gtk_entry_set_text(GTK_ENTRY(controls->app_name_entry), "msquic-app-name-client");
-    // gtk_entry_set_width_chars(GTK_ENTRY(controls->app_name_entry), 20);
-
-    // gtk_box_pack_start(GTK_BOX(row_app_name), app_name_label, FALSE, FALSE, 0);
-    // gtk_box_pack_start(GTK_BOX(row_app_name), controls->app_name_entry, FALSE, FALSE, 0);
-    // gtk_box_pack_start(GTK_BOX(controls->container), row_app_name, FALSE, FALSE, 0);
-
     // --- ROW 4: Start/Stop Button ---
     controls->start_stop_btn = gtk_button_new_with_label("Start VPN Engine");
     gtk_widget_set_halign(controls->start_stop_btn, GTK_ALIGN_START); // Don't stretch button either

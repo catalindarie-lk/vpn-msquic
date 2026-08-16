@@ -23,7 +23,10 @@ void* thread_pkt_data_send(void* arg)
     session_t* session = (session_t*)arg;
     assert(session);
 
-    state_sync_wait(&session->tun_state,  TUN_READY);
+    if(!state_sync_check(&session->tun_state, TUN_READY)) {
+        LOG_ERROR("TUN interface NOT READY");
+        return NULL;
+    }
 
     struct pollfd fds[2];
 
@@ -108,7 +111,7 @@ void* thread_pkt_data_send(void* arg)
         }
 
     }
-    LOG_DEBUG("------------THREAD joined-------------");
+    LOG_DEBUG("thread_pkt_data_send joined");
     return NULL;
 }
 
@@ -117,7 +120,10 @@ void* thread_pkt_data_recv(void* arg)
 {
     session_t* session = (session_t*)arg;
 
-    state_sync_wait(&session->tun_state,  TUN_READY);
+    if(!state_sync_check(&session->tun_state, TUN_READY)) {
+        LOG_ERROR("TUN interface NOT READY");
+        return NULL;
+    }
 
     while (session->running_pkt_data_recv) {
 
@@ -148,7 +154,7 @@ void* thread_pkt_data_recv(void* arg)
         pool_put(pkt);
     }
 
-    LOG_DEBUG("------------THREAD joined-------------");
+    LOG_DEBUG("thread_pkt_data_recv joined");
     return NULL;
 }
 

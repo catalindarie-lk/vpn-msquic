@@ -40,8 +40,6 @@ session_t* session_create(vpn_config_t* config)
 
     session->server_port = config->server_port;
 
-    
-
     assert(state_sync_init(&session->tun_state, TUN_CLOSED) == 0);
 
     assert(state_sync_init(&session->con_state, SESSION_DISCONNECTED) == 0);
@@ -59,7 +57,7 @@ session_t* session_create(vpn_config_t* config)
     session->queue_pkt_data_recv = (queue_t*)queue_init(32 * 1024 * 1024);
     assert(session->queue_pkt_data_recv);
 
-    LOG_DEBUG("Connecting to server... | %s:%u - %s", session->server_ip_str, session->server_port);
+    LOG_DEBUG("Connecting to server... | %s:%u", session->server_ip_str, session->server_port);
 
     return session;
 }
