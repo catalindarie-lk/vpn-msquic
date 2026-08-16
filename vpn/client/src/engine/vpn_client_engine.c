@@ -27,15 +27,14 @@
 #include "queue.h"
 #include "quic.h"
 #include "session.h"
+#include "state_sync.h"
 #include "tun_api.h"
 #include "threads.h"
 
 #include "app_config.h"
 
 
-void vpn_engine_cleanup(void *vpn_engine_ctx) {
-
-    session_t *session = (session_t*)vpn_engine_ctx;
+void vpn_engine_cleanup(session_t *session) {
 
     if (!session) {
         return;
@@ -73,17 +72,16 @@ void vpn_engine_cleanup(void *vpn_engine_ctx) {
         session->MsQuic = NULL;
     }
 
-    pool_destroy(session->vpn_packet_pool);
-    session->vpn_packet_pool = NULL;
-    pool_destroy(session->pool_pkt_data_recv);
-    session->pool_pkt_data_recv = NULL;
-    queue_destroy(session->queue_pkt_data_recv);
-    session->queue_pkt_data_recv = NULL;
-
     if (session->wan) {
         free(session->wan);
         session->wan = NULL;
     }
+
+    state_sync_destroy(&session->con_state);
+    state_sync_destroy(&session->stream_state);
+    pool_destroy(session->pool_pkt_data_send);
+    pool_destroy(session->pool_pkt_data_recv);
+    queue_destroy(session->queue_pkt_data_recv);
 
     LOG_DEBUG("Finished cleanup");
     

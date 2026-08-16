@@ -64,7 +64,7 @@ void* thread_pkt_data_send(void* arg)
 
         // 2. Process TUN Packet (Guaranteed non-blocking read)
         if (fds[0].revents & POLLIN) {
-            pkt_data_t* pkt = (pkt_data_t* )pool_wait_get(session->vpn_packet_pool);
+            pkt_data_t* pkt = (pkt_data_t* )pool_wait_get(session->pool_pkt_data_send);
         
 
             int tun_fd = fds[0].fd;

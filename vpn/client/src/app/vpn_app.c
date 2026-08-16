@@ -10,7 +10,7 @@
 #include "session.h"
 
 extern void *vpn_engine_start(vpn_config_t* config);
-extern void vpn_engine_cleanup(void *vpn_engine_ctx);
+extern void vpn_engine_cleanup(session_t *session);
 
 static void *engine_thread_routine(void *arg) {
     vpn_app_t *app = (vpn_app_t *)arg;
@@ -27,8 +27,8 @@ static void *engine_thread_routine(void *arg) {
     GtkButton *start_stop_btn = (GtkButton*)app->controls->start_stop_btn;
     gtk_button_set_label(start_stop_btn, "Stop VPN Engine");
 
-    while (state_sync_check(&app->state, APP_RUNNING) && 
-            state_sync_check(&app->session->con_state, SESSION_CONNECTED)) {
+    while (state_sync_check(&app->state, APP_RUNNING) /*&& 
+            state_sync_check(&app->session->con_state, SESSION_CONNECTED)*/) {
         sleep(1);
     }
 
@@ -38,7 +38,6 @@ static void *engine_thread_routine(void *arg) {
     }
 
     state_sync_set(&app->state, APP_STOPPED);
-    // GtkButton *start_stop_btn = (GtkButton*)app->controls->start_stop_btn;
     gtk_button_set_label(start_stop_btn, "Start VPN Engine");
     return NULL;
 }

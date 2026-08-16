@@ -32,20 +32,15 @@ static void on_start_stop_clicked(GtkButton *start_stop_btn, gpointer user_data)
     vpn_app_t *app = (vpn_app_t*)user_data;
     view_controls_t *controls = app->controls;
 
-    // const char* button_label;
     if (state_sync_check(&app->state, APP_RUNNING)) {
-    // if (atomic_load(&app->is_running)) {
         vpn_app_stop_engine(app);
-        // controls->start_stop_btn_label = get_button_label(app);
-        // gtk_button_set_label(start_stop_btn, "Start VPN Engine");
     } else if (state_sync_check(&app->state, APP_STOPPED)) {
         view_controls_read_config(controls, &app->config);
         vpn_app_start_engine(app);
-        // controls->start_stop_btn_label = get_button_label(app);
-        // gtk_button_set_label(start_stop_btn, "Stop VPN Engine");
     } else {
         //
     }
+    return;
 }
 
 view_controls_t *view_controls_create(vpn_app_t *app) {

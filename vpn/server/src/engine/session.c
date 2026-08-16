@@ -4,7 +4,6 @@
 #include "pool.h"
 #include "queue.h"
 #include "pkt_data.h"
-#include "threads.h"
 
 session_t* create_session()
 {
@@ -33,7 +32,7 @@ session_t* create_session()
     if(!pool_pkt_data_recv) return NULL;
     session->pool_pkt_data_recv = pool_pkt_data_recv;
 
-    queue_pkt_data_recv = queue_init(32 * 1024 * 1024);
+    queue_pkt_data_recv = queue_init(128 * 1024 * 1024);
     if(!queue_pkt_data_recv) return NULL;
     session->queue_pkt_data_recv = queue_pkt_data_recv;
 

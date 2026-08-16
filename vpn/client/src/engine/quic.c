@@ -612,7 +612,7 @@ int MsQuicConfigParameters(CLIENT_QUIC_CONTEXT *MsQuic, const char* alpn)
     memset(&MsQuic->Settings, 0, sizeof(MsQuic->Settings));
 
     // Set the Disconnect Timeout to 2 min
-    MsQuic->Settings.DisconnectTimeoutMs = 2 * 60 * 1000;
+    MsQuic->Settings.DisconnectTimeoutMs = 2 * 5 * 1000;
     MsQuic->Settings.IsSet.DisconnectTimeoutMs = TRUE;
 
     // Set the handshake timeouts to 30 sec
@@ -624,7 +624,7 @@ int MsQuicConfigParameters(CLIENT_QUIC_CONTEXT *MsQuic, const char* alpn)
     MsQuic->Settings.IsSet.IdleTimeoutMs = TRUE;
 
     // Send background heartbeats every 15 sec
-    MsQuic->Settings.KeepAliveIntervalMs = 10 * 1000;
+    MsQuic->Settings.KeepAliveIntervalMs = 5 * 1000;
     MsQuic->Settings.IsSet.KeepAliveIntervalMs = TRUE;
 
     // For VPN tunneling use unreliable datagram (read TCP meltdown)

@@ -47,7 +47,7 @@ typedef struct session_t {
     char server_ip_str[INET_ADDRSTRLEN];
     uint16_t server_port;
 
-    pool_t *vpn_packet_pool;
+    pool_t *pool_pkt_data_send;
 
     int shutdown_fd;
 
